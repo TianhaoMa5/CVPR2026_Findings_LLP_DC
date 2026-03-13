@@ -19,7 +19,6 @@
 | `--weight-decay` | `float` | `1e-3`     | Weight decay                 |
 | `--momentum`     | `float` | `0.9`      | Momentum                     |
 | `--seed`         | `int`   | `10`       | Random seed                  |
-| `--lam-c`        | `float` | `1.0`      | Contrastive loss weight      |
 | `--lam-u`        | `float` | `0.5`      | Proportion loss weight       |
 | `--thr`          | `float` | `0.6`      | Pseudo label threshold       |
 | `--exp-dir`      | `str`   | `LLP_DC`   | Experiment directory         |
