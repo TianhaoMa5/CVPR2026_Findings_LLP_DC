@@ -13,13 +13,11 @@
 | `--n-epoches`    | `int`   | `1024`     | Training epochs              |
 | `--batchsize`    | `int`   | `64`       | Bag batch size               |
 | `--bagsize`      | `int`   | `16`       | Instances per bag            |
-| `--eval-ema`     | `bool`  | `False`    | Use EMA model for evaluation |
-| `--ema-m`        | `float` | `0.999`    | EMA decay rate               |
 | `--lr`           | `float` | `0.03`     | Learning rate                |
 | `--weight-decay` | `float` | `1e-3`     | Weight decay                 |
 | `--momentum`     | `float` | `0.9`      | Momentum                     |
 | `--seed`         | `int`   | `10`       | Random seed                  |
-| `--lam-u`        | `float` | `0.5`      | Proportion loss weight       |
+| `--lam-u`        | `float` | `0.5`      | Instance-level loss weight       |
 | `--thr`          | `float` | `0.6`      | Pseudo label threshold       |
 | `--exp-dir`      | `str`   | `LLP_DC`   | Experiment directory         |
 | `--checkpoint`   | `str`   | `''`       | Path to pretrained model     |
@@ -41,4 +39,4 @@ python LLP_DC.py \
   --thr 0.6 \
   --n-epoches 1024 \
   --exp-dir results_cifar100
-```】
+
