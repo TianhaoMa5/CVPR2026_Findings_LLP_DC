@@ -124,14 +124,14 @@ def solve_optimal_onehot_with_proportions_torch(
     epsilon=1e-12,
     cost_scale=10000
 ):
-    assert isinstance(softmax_tensor, torch.Tensor), "softmax_tensor 必须是 PyTorch 张量"
-    assert isinstance(proportions, torch.Tensor), "proportions 必须是 PyTorch 张量"
+    assert isinstance(softmax_tensor, torch.Tensor), "softmax_tensor must be a PyTorch tensor"
+    assert isinstance(proportions, torch.Tensor), "proportions must be a PyTorch tensor"
 
     softmax_cpu = softmax_tensor.detach().cpu().numpy()
     proportions_cpu = proportions.detach().cpu().numpy()
 
     if not math.isclose(proportions_cpu.sum(), 1.0, rel_tol=1e-6, abs_tol=1e-9):
-        raise ValueError("proportions 的和必须接近 1。")
+        raise ValueError("The sum of proportions must be close to 1.")
 
     target_counts = (proportions_cpu * bagsize).astype(int)
     remaining = bagsize - target_counts.sum()
@@ -171,7 +171,7 @@ def solve_optimal_onehot_with_proportions_torch(
 
     status = min_cost_flow.Solve()
     if status != min_cost_flow.OPTIMAL:
-        raise RuntimeError("OR-Tools: 未找到最优解")
+        raise RuntimeError("OR-Tools: no optimal solution found")
 
     best_onehot = torch.zeros((bagsize, n_classes), dtype=torch.int32)
     for i in range(min_cost_flow.NumArcs()):
@@ -235,7 +235,7 @@ def solve_mcf_once(
 
     status = min_cost_flow.Solve()
     if status != min_cost_flow.OPTIMAL:
-        raise RuntimeError("OR-Tools: 未找到最优解 (status = {})".format(status))
+        raise RuntimeError("OR-Tools: no optimal solution found (status = {})".format(status))
 
     best_onehot = torch.zeros((bagsize, n_classes), dtype=torch.int32)
     total_neglog = 0.0
@@ -342,7 +342,7 @@ def compute_single_bag_loss_dp_cuda(
     class_counts = [int(round(proportion[k].item() * s)) for k in range(c)]
     if sum(class_counts) != s:
         raise ValueError(
-            f"类别计数之和 != s, proportion * s 不为整数或round后有误差: {class_counts}"
+            f"The sum of class counts does not equal s; proportion * s is non-integer or differs after rounding: {class_counts}"
         )
 
 

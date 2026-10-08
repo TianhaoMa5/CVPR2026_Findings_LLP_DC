@@ -353,7 +353,7 @@ def train_one_epoch(epoch,
         # loss_x = criteria_x(logits_x, lbs_x)
         N, C = probs.shape
         s = bagsize
-        assert N % s == 0, f"N={N} 不能被 bagsize={s} 整除"
+        assert N % s == 0, f"N={N} is not divisible by bagsize={s}"
         B = N // s
 
         labels_p_batch = probs.contiguous().view(B, s, C)
@@ -429,7 +429,7 @@ def train_one_epoch(epoch,
             epoch_start = time.time()
             bagsize = getattr(args, "bagsize", getattr(args, "bag_size", None))
             if bagsize is None:
-                raise ValueError("请在 args 中提供 bagsize 或 bag_size")
+                raise ValueError("Specify bagsize or bag_size in args")
 
             exp_dir_name = os.path.basename(os.path.normpath(args.exp_dir))
 
