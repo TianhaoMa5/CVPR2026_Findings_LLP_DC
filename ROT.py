@@ -34,7 +34,6 @@ def cross_entropy_loss_torch(softmax_matrix, onehot_labels):
 
     log_softmax = torch.log(softmax_matrix + 1e-12)
 
-    # 计算交叉熵
     cross_entropy = -torch.sum(onehot_labels * log_softmax, dim=1)
 
     mean_loss = torch.mean(cross_entropy)
@@ -322,7 +321,7 @@ def train_one_epoch(epoch,
 
             probs = torch.softmax(logits_u_w_1, dim=1)
             fl = 0
-            new_probs = []  # 存储修改后的 probs 块
+            new_probs = []
 
             for i in range(0, probs.size(0), args.bagsize):
                 prob_chunk = probs[i:i + args.bagsize]

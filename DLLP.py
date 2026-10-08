@@ -138,37 +138,26 @@ def weight_decay_with_mask(mask, initial_weight, max_mask_count):
 import torch
 
 def llp_second_order_ce_mass_shape(labels_p_batch, proportion, bagsize, use_counts=False, eps=1e-8):
-    """
-    labels_p_batch: [B, s, C]  — 每袋 s 个实例的 softmax 概率
-    proportion    : [B, C]     — 袋比例 r_c；若 use_counts=True，则 proportion*s 视为计数 K_c
-    bagsize (s)   : int
-    返回: loss_2nd_total, loss_mass, loss_shape
-    """
     B, s, C = labels_p_batch.shape
     s = int(s)
-    # ---------- 预测端：同类对概率 t_hat_c ----------
     S1 = labels_p_batch.sum(dim=1)                  # [B,C],  \sum_i p_ic
     S2 = (labels_p_batch**2).sum(dim=1)             # [B,C],  \sum_i p_ic^2
     denom = (s * (s - 1.0)) + eps
-    t_hat = (S1**2 - S2) / denom                    # [B,C], 同类对概率
+    t_hat = (S1**2 - S2) / denom
     t_hat = t_hat.clamp(eps, 1 - eps)
 
-    # ---------- 目标端：t_c ----------
     if use_counts:
-        # proportion 是 K/s
         K = (proportion * s).to(labels_p_batch.dtype)       # [B,C]
         t = (K * (K - 1.0)) / denom                         # [B,C]
     else:
         r = (proportion / (proportion.sum(dim=1, keepdim=True) + eps)).to(labels_p_batch.dtype)
-        t = (r ** 2)                                        # [B,C] 推荐用 r^2，始终 ∈[0,1]
+        t = (r ** 2)
     t = t.clamp(eps, 1 - eps)
 
-    # ---------- mass：同类对总质量 ----------
     q2_hat = t_hat.sum(dim=1, keepdim=True)                 # [B,1]
     q2     = t.sum(dim=1, keepdim=True)                     # [B,1]
     loss_mass = - ( q2 * (q2_hat + eps).log() + (1 - q2) * (1 - q2_hat + eps).log() ).mean()
 
-    # ---------- shape：在“同类对”条件下的类分布 ----------
     pi_hat = (t_hat / (q2_hat + eps)).clamp(eps, 1 - eps)   # [B,C]
     pi     = (t     / (q2     + eps)).clamp(eps, 1 - eps)   # [B,C]
     loss_shape = - (pi * (pi_hat + eps).log()).sum(dim=1).mean()
@@ -198,33 +187,26 @@ def llp_loss_batch(labels_proportion, y, reduce: str = "mean", eps: float = 1e-7
 import torch
 
 def llp_second_order_only_ce(
-    labels_p_batch: torch.Tensor,   # [B, s, C]  每袋 s 个样本的 softmax 概率
-    proportion: torch.Tensor,       # [B, C]     袋比例 r_c；若 use_counts=True，则 proportion*s≈K_c
+    labels_p_batch: torch.Tensor,
+    proportion: torch.Tensor,
     bagsize: int,                   # s
     mode: str = "massshape",        # "massshape" | "matrix_ce"
-    use_counts: bool = False,       # 只有比例时 False；有整数计数时 True
+    use_counts: bool = False,
     eps: float = 1e-8,
 ):
-    """
-    返回: loss_2nd, dict(可选日志)
-    只包含二阶项，不含一阶 bag-CE。
-    """
     B, s, C = labels_p_batch.shape
     P = labels_p_batch
     r = proportion.to(P.dtype)
-    r = r / (r.sum(1, keepdim=True) + eps)     # 防御性归一化
+    r = r / (r.sum(1, keepdim=True) + eps)
 
-    # 公共量
     S1 = P.sum(1)                               # [B,C]
     S2 = (P**2).sum(1)                          # [B,C]
     denom = s * (s - 1.0) + eps
 
     if mode.lower() == "massshape":
-        # per-class 同类对概率（预测）
         t_hat = (S1**2 - S2) / denom            # [B,C]
         t_hat = t_hat.clamp(eps, 1 - eps)
 
-        # 目标：比例更稳（始终∈[0,1]）；若有整数计数则改用 use_counts=True
         if use_counts:
             K = (proportion * s).to(P.dtype)        # [B,C]
             t = (K * (K - 1.0)) / denom             # [B,C]
@@ -232,12 +214,10 @@ def llp_second_order_only_ce(
             t = (r**2)                               # [B,C]
         t = t.clamp(eps, 1 - eps)
 
-        # mass：同类对总质量（同类 vs 异类，二元 CE）
         q2_hat = t_hat.sum(1, keepdim=True)          # [B,1]
         q2     = t.sum(1, keepdim=True)              # [B,1]
         loss_mass  = - ( q2 * (q2_hat+eps).log() + (1-q2) * (1-q2_hat+eps).log() ).mean()
 
-        # shape：在“同类对”条件下的类分布（多类 CE）
         pi_hat = (t_hat / (q2_hat + eps)).clamp(eps, 1 - eps)   # [B,C]
         pi     = (t     / (q2     + eps)).clamp(eps, 1 - eps)   # [B,C]
         loss_shape = - (pi * (pi_hat + eps).log()).sum(1).mean()
@@ -247,7 +227,6 @@ def llp_second_order_only_ce(
                 "q2_hat": q2_hat.mean().detach(), "q2": q2.mean().detach()}
 
     elif mode.lower() == "matrix_ce":
-        # 整体 CxC 有序对矩阵（含异类对）
         S1S1T = torch.einsum('bc,bd->bcd', S1, S1)          # [B,C,C]
         S2mat = torch.einsum('bmc,bmd->bcd', P, P)          # \sum_i p_i p_i^T
         Pi_hat = (S1S1T - S2mat) / denom                    # [B,C,C]
@@ -258,12 +237,10 @@ def llp_second_order_only_ce(
             KKt = torch.einsum('bc,bd->bcd', K, K)          # [B,C,C]
             Pi = (KKt - torch.diag_embed(K)) / denom        # [B,C,C]
         else:
-            # 期望目标（无整数计数时）：E[(KK^T - diag K)] / s(s-1) ≈ r r^T - diag(r)/s
             rrT = torch.einsum('bc,bd->bcd', r, r)
             Pi = rrT - torch.diag_embed(r / max(s, 1.0))
         Pi = Pi.clamp(eps, 1 - eps)
 
-        # 条目级 CE（矩阵 KL 等价 up to 常数）
         loss_2nd = - (Pi * (Pi_hat+eps).log() + (1-Pi) * (1-Pi_hat+eps).log()).sum((1,2)).mean()
         logs = {}
 
@@ -362,7 +339,7 @@ def train_one_epoch(epoch,
         imgs = torch.cat([ims_u_weak], dim=0).cuda()
         logits,_ = model(imgs)
         if isinstance(logits, (tuple, list)):
-            logits = logits[0]  # 取真正的分类输出那个 tensor
+            logits = logits[0]
 
         # logits_x = logits[:bt]
         logits_u_w = torch.split(logits[0:], btu)
@@ -372,14 +349,13 @@ def train_one_epoch(epoch,
         proportion = proportion.squeeze(-1)
         proportion = proportion.double()
 
-        probs = torch.softmax(logits_u_w, dim=-1)  # 或 dim=1
+        probs = torch.softmax(logits_u_w, dim=-1)
         # loss_x = criteria_x(logits_x, lbs_x)
         N, C = probs.shape
         s = bagsize
         assert N % s == 0, f"N={N} 不能被 bagsize={s} 整除"
         B = N // s
 
-        # 变成 [B, s, C]
         labels_p_batch = probs.contiguous().view(B, s, C)
         bag_preds = labels_p_batch.mean(dim=1)  # [B, C]
 
@@ -399,8 +375,8 @@ def train_one_epoch(epoch,
             labels_p_batch=labels_p_batch,
             proportion=proportion,
             bagsize=bagsize,
-            mode="massshape",  # 或 "matrix_ce"
-            use_counts=False,  # 只有比例时 False；有整数计数再切 True
+            mode="massshape",
+            use_counts=False,
             eps=1e-8,
         )
         loss_1 = llp_loss_batch(proportion, bag_preds, reduce="mean")
@@ -496,7 +472,7 @@ def evaluate(model, ema_model, dataloader,dataset):
 
             out = model(ims)
             if isinstance(out, (tuple, list)):
-                logits = out[0]  # 取第一个作为 logits
+                logits = out[0]
             else:
                 logits = out
             loss = torch.nn.CrossEntropyLoss()(logits, lbs)
@@ -515,7 +491,7 @@ def evaluate(model, ema_model, dataloader,dataset):
             if ema_model is not None:
                 out = ema_model(ims)
                 if isinstance(out, (tuple, list)):
-                    ema_logits = out[0]  # 取第一个作为 logits
+                    ema_logits = out[0]
                 else:
                     ema_logits = out
 

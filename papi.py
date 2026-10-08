@@ -170,27 +170,22 @@ class Identity(nn.Module):
 
 class PaPiNet(nn.Module):
     def __init__(self, name='resnet18', head='mlp', feat_dim=128, num_class=100, pretrained=False):
-        super(PaPiNet, self).__init__()   # ← 必须先调用
+        super(PaPiNet, self).__init__()
 
         model_fun, dim_in = model_dict[name]
 
         if pretrained:
             if _HAS_WEIGHTS:
-                # 新API：使用 ImageNet 预训练
                 model = models.resnet18(weights=ResNet18_Weights.IMAGENET1K_V1)
             else:
-                # 旧API兼容
                 model = models.resnet18(pretrained=True)
-            model.fc = Identity()   # 让 forward 输出 512-D 特征
-            self.encoder = model    # 这是 ImageNet-style stem（7x7+maxpool）
+            model.fc = Identity()
+            self.encoder = model
         else:
-            # 走你自定义的 CIFAR-style resnet18（3x3 s=1，无maxpool）
             self.encoder = model_fun()
 
-        # 分类头
         self.fc = nn.Linear(dim_in, num_class)
 
-        # 投影头
         if head == 'linear':
             self.head = nn.Linear(dim_in, feat_dim)
         elif head == 'mlp':
